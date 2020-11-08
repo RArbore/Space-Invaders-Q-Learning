@@ -241,14 +241,14 @@ def training_stuff(shm_screen_name, shm_stats_name, shm_controls_name, shm_gameo
                     avg_loss = 0.0
                     for sample in samples:
                         loss = torch.zeros(1).to(device)
-                        if replay_buffer[sample][2] - replay_buffer[sample-1][2] > 1000:
+                        if replay_buffer[sample][2] - replay_buffer[sample-1][2] > 0:
                             continue
                         for i in range(frames_per_state):
                             replay_buffer[sample][0][i] = replay_buffer[sample][0][i].to(device)
                             replay_buffer[sample+1][0][i] = replay_buffer[sample+1][0][i].to(device)
                         target = (replay_buffer[sample][2] - replay_buffer[sample-1][2]).to(device)
-                        if not replay_buffer[sample+1][2] == -1:
-                            target += gamma*torch.argmax(pred_model(replay_buffer[sample+1][0], torch.tensor(replay_buffer[sample][4]).to(device))).to(device)
+                        if not (replay_buffer[sample+1][2] == -1):
+                            target += gamma*torch.max(pred_model(replay_buffer[sample+1][0], torch.tensor(replay_buffer[sample][4]).to(device))).to(device)
                         loss += ((target - model(replay_buffer[sample][0], torch.tensor(replay_buffer[sample][4]).to(device))[0, replay_buffer[sample][1]])**2).float().to(device)
                         for i in range(frames_per_state):
                             replay_buffer[sample][0][i] = replay_buffer[sample][0][i].to(cpu)
