@@ -11,19 +11,19 @@ import copy
 import os
 import sys
 
-episodes = 5000
+episodes = 1000
 
 load_previous = False
 
 evaluation = False
 
-initial_greedy_threshold = 0.5
-greedy_decay = 0.999
+initial_greedy_threshold = 0.05
+greedy_decay = 1
 
 if evaluation:
     initial_greedy_threshold = 0
 
-gamma = 0.999
+gamma = 0.9
 
 frames_per_state = 3
 
