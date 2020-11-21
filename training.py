@@ -11,11 +11,13 @@ import copy
 import os
 import sys
 
-episodes = 1000
+episodes = 25000
 
 load_previous = False
 
 evaluation = False
+
+make_trial = True
 
 initial_greedy_threshold = 0.05
 greedy_decay = 1
@@ -55,21 +57,21 @@ class QNetwork(torch.nn.Module):
             torch.nn.ReLU(True),
         )
         self.value_stream = torch.nn.Sequential(
-            torch.nn.Linear(13750, 1000),
+            torch.nn.Linear(14000, 1000),
             torch.nn.LeakyReLU(0.2, inplace=True),
             torch.nn.Linear(1000, 100),
             torch.nn.LeakyReLU(0.2, inplace=True),
             torch.nn.Linear(100, 1),
         )
         self.advantage_stream = torch.nn.Sequential(
-            torch.nn.Linear(13750, 1000),
+            torch.nn.Linear(14000, 1000),
             torch.nn.LeakyReLU(0.2, inplace=True),
             torch.nn.Linear(1000, 100),
             torch.nn.LeakyReLU(0.2, inplace=True),
             torch.nn.Linear(100, 3),
         )
 
-    def forward(self, input, xpos):
+    def forward(self, input, xpos, bpos):
         out = []
         for i in input:
             out.append(torch.mean(i.view(1, 3, 600, 800).float()/256.0, dim=1, keepdim=True))
@@ -78,7 +80,8 @@ class QNetwork(torch.nn.Module):
         features = self.conv(out)
         features = features.view(out.size(0), -1)
 
-        #features = torch.cat((features, xpos.view(1, 1).expand(1, 500).float()), dim=1)
+        features = torch.cat((features, xpos.view(1, 1).expand(1, 10).float()), dim=1)
+        features = torch.cat((features, bpos.view(1, 12).repeat(1, 20).float()), dim=1)
 
         values = self.value_stream(features)
         advantages = self.advantage_stream(features)
@@ -94,20 +97,21 @@ def save_image(tensor, filename):
 def training_stuff(shm_screen_name, shm_stats_name, shm_controls_name, shm_gameover_name, shm_player_input_name):
     current_milli_time = lambda: int(round(time.time() * 1000))
 
-    files = os.listdir(".")
-    folder_number = 1
+    if make_trial:
+        files = os.listdir(".")
+        folder_number = 1
 
-    m = [int(f[5:]) for f in files if len(f) > 5 and f[0:5] == "trial"]
-    if len(m) > 0:
-        folder = "trial" + str(max(m) + 1)
-        folder_number = max(m) + 1
-    else:
-        folder = "trial1"
-    os.mkdir(folder)
+        m = [int(f[5:]) for f in files if len(f) > 5 and f[0:5] == "trial"]
+        if len(m) > 0:
+            folder = "trial" + str(max(m) + 1)
+            folder_number = max(m) + 1
+        else:
+            folder = "trial1"
+        os.mkdir(folder)
 
-    print("Created session folder " + folder)
+        print("Created session folder " + folder)
 
-    f = open(folder + "/scores.txt", "a")
+        f = open(folder + "/scores.txt", "a")
 
     device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
     cpu = torch.device("cpu")
@@ -172,11 +176,14 @@ def training_stuff(shm_screen_name, shm_stats_name, shm_controls_name, shm_gameo
             state.append(image_tensor.view(3, 600, 800))
 
         raw = stats_attach.buf.tobytes()
-        l = list(raw[0:5])
+        l = list(raw[0:17])
         stats_tensor = torch.zeros(2)
         stats_tensor[0] = l[0]+256*l[1]+256*256*l[2]
         stats_tensor[1] = l[3]
         xpos = l[4]
+        bpos = []
+        for i in range(5, 17):
+            bpos.append(l[i])
 
         score = stats_tensor[1]-last_lives
         average_r.append(score)
@@ -187,7 +194,7 @@ def training_stuff(shm_screen_name, shm_stats_name, shm_controls_name, shm_gameo
         for i in state:
             model_input.append(i.to(device))
 
-        utility_values = model(model_input, torch.tensor(xpos).to(device)).view(-1)
+        utility_values = model(model_input, torch.tensor(xpos).to(device), torch.tensor(bpos).to(device)).view(-1)
         average_q.append(torch.max(utility_values).item())
         del model_input
         calculated_action = torch.argmax(utility_values).cpu().item()
@@ -206,7 +213,7 @@ def training_stuff(shm_screen_name, shm_stats_name, shm_controls_name, shm_gameo
         action = calculated_action
 
         if gameover_attach.buf[0] == 0:
-            replay_buffer.append((state, action, score, stats_tensor[0], xpos))
+            replay_buffer.append((state, action, score, stats_tensor[0], xpos, bpos))
             if len(replay_buffer) > 5000:
                 gameover_attach.buf[0] = 1
 
@@ -248,8 +255,8 @@ def training_stuff(shm_screen_name, shm_stats_name, shm_controls_name, shm_gameo
                             replay_buffer[sample+1][0][i] = replay_buffer[sample+1][0][i].to(device)
                         target = (replay_buffer[sample][2] - replay_buffer[sample-1][2]).to(device)
                         if not (replay_buffer[sample+1][2] == -1):
-                            target += gamma*torch.max(pred_model(replay_buffer[sample+1][0], torch.tensor(replay_buffer[sample][4]).to(device))).to(device)
-                        loss += ((target - model(replay_buffer[sample][0], torch.tensor(replay_buffer[sample][4]).to(device))[0, replay_buffer[sample][1]])**2).float().to(device)
+                            target += gamma*torch.max(pred_model(replay_buffer[sample+1][0], torch.tensor(replay_buffer[sample][4]).to(device), torch.tensor(replay_buffer[sample][5]).to(device))).to(device)
+                        loss += ((target - model(replay_buffer[sample][0], torch.tensor(replay_buffer[sample][4]).to(device), torch.tensor(replay_buffer[sample][5]).to(device))[0, replay_buffer[sample][1]])**2).float().to(device)
                         for i in range(frames_per_state):
                             replay_buffer[sample][0][i] = replay_buffer[sample][0][i].to(cpu)
                             replay_buffer[sample+1][0][i] = replay_buffer[sample+1][0][i].to(cpu)
@@ -271,13 +278,14 @@ def training_stuff(shm_screen_name, shm_stats_name, shm_controls_name, shm_gameo
 
                     print("Episode "+str(episode)+"   Score: "+str(max_score)+"   Reward: "+str(r)+"   Loss: "+str(avg_loss)+"   Q: "+str(q))
 
-                    f.write(str(episode)+" "+str(max_score)+" "+str(r)+" "+str(avg_loss)+" "+str(q)+"\n")
+                    if make_trial:
+                        f.write(str(episode)+" "+str(max_score)+" "+str(r)+" "+str(avg_loss)+" "+str(q)+"\n")
 
                 replay_buffer = []
 
             gameover_attach.buf[0] = 0
             time.sleep(0.25)
 
-    f.close()
-    torch.save(model.state_dict(), folder + "/trained.pt")
-    sys.exit()
+    if make_trial:
+        f.close()
+        torch.save(model.state_dict(), folder + "/trained.pt")

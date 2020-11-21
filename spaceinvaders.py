@@ -16,7 +16,7 @@ if __name__ == '__main__':
     import training
 
     shm_screen = shared_memory.SharedMemory(create=True, size=1920000)
-    shm_stats = shared_memory.SharedMemory(create=True, size=5)
+    shm_stats = shared_memory.SharedMemory(create=True, size=17)
     shm_controls = shared_memory.SharedMemory(create=True, size=3)
     shm_player_input = shared_memory.SharedMemory(create=True, size=3)
     shm_gameover = shared_memory.SharedMemory(create=True, size=1)
@@ -26,6 +26,8 @@ if __name__ == '__main__':
     shm_controls_name = shm_controls.name
     shm_player_input_name = shm_player_input.name
     shm_gameover_name = shm_gameover.name
+
+    enemyBulletsList = []
 
     def getKey(index):
         return shm_controls.buf[index]
@@ -495,9 +497,9 @@ if __name__ == '__main__':
                 enemy = self.enemies.random_bottom()
                 #while not enemy.column == 0 and not enemy.column == 7 and not enemy.column == 15:
                 #    enemy = self.enemies.random_bottom()
-                self.enemyBullets.add(
-                    Bullet(enemy.rect.x + 14, enemy.rect.y + 20, 1, 5,
-                        'enemylaser', 'center'))
+                b = Bullet(enemy.rect.x + 14, enemy.rect.y + 20, 1, 5, 'enemylaser', 'center')
+                enemyBulletsList.append(b)
+                self.enemyBullets.add(b)
                 self.allSprites.add(self.enemyBullets)
                 self.timer = time.get_ticks()
 
@@ -692,6 +694,24 @@ if __name__ == '__main__':
                 shm_stats.buf[2] = m.floor(self.score/(256*256)) % 256
                 shm_stats.buf[3] = len(self.livesGroup)
                 shm_stats.buf[4] = int(float(self.player.rect.x-10)/730.0*255)
+
+                if len(enemyBulletsList) > 0:
+                    b = enemyBulletsList[0]
+                    if not self.enemyBullets.has(b):
+                        enemyBulletsList.remove(b)
+
+                for i in range(6):
+                    if len(enemyBulletsList) > i:
+                        b = enemyBulletsList[i]
+                        shm_stats.buf[5+2*i] = int(b.rect.left/4)
+                        shm_stats.buf[6+2*i] = int(b.rect.top/3)
+                    else:
+                        shm_stats.buf[5+2*i] = 0
+                        shm_stats.buf[6+2*i] = 0
+
+                #print(len(enemyBulletsList))
+
+                #print(len(enemyBulletsList))
 
                 # for e in event.get():
                 #     if self.should_exit(e):
