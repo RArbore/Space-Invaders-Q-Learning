@@ -42,46 +42,46 @@ class QNetwork(torch.nn.Module):
 
     def __init__(self):
         super(QNetwork, self).__init__()
-        self.conv = torch.nn.Sequential(
-            torch.nn.Conv2d(3, 5, 3, 1, 1),
-            torch.nn.MaxPool2d(2),
-            torch.nn.ReLU(True),
-            torch.nn.Conv2d(5, 7, 3, 1, 1),
-            torch.nn.MaxPool2d(2),
-            torch.nn.ReLU(True),
-            torch.nn.Conv2d(7, 9, 3, 1, 1),
-            torch.nn.MaxPool2d(2),
-            torch.nn.ReLU(True),
-            torch.nn.Conv2d(9, 11, 3, 1, 1),
-            torch.nn.MaxPool2d(2),
-            torch.nn.ReLU(True),
-        )
+        # self.conv = torch.nn.Sequential(
+        #     torch.nn.Conv2d(3, 5, 3, 1, 1),
+        #     torch.nn.MaxPool2d(2),
+        #     torch.nn.ReLU(True),
+        #     torch.nn.Conv2d(5, 7, 3, 1, 1),
+        #     torch.nn.MaxPool2d(2),
+        #     torch.nn.ReLU(True),
+        #     torch.nn.Conv2d(7, 9, 3, 1, 1),
+        #     torch.nn.MaxPool2d(2),
+        #     torch.nn.ReLU(True),
+        #     torch.nn.Conv2d(9, 11, 3, 1, 1),
+        #     torch.nn.MaxPool2d(2),
+        #     torch.nn.ReLU(True),
+        # )
         self.value_stream = torch.nn.Sequential(
-            torch.nn.Linear(14000, 1000),
+            torch.nn.Linear(13, 10),
             torch.nn.LeakyReLU(0.2, inplace=True),
-            torch.nn.Linear(1000, 100),
+            torch.nn.Linear(10, 5),
             torch.nn.LeakyReLU(0.2, inplace=True),
-            torch.nn.Linear(100, 1),
+            torch.nn.Linear(5, 1),
         )
         self.advantage_stream = torch.nn.Sequential(
-            torch.nn.Linear(14000, 1000),
+            torch.nn.Linear(13, 10),
             torch.nn.LeakyReLU(0.2, inplace=True),
-            torch.nn.Linear(1000, 100),
+            torch.nn.Linear(10, 5),
             torch.nn.LeakyReLU(0.2, inplace=True),
-            torch.nn.Linear(100, 3),
+            torch.nn.Linear(5, 3),
         )
 
     def forward(self, input, xpos, bpos):
-        out = []
-        for i in input:
-            out.append(torch.mean(i.view(1, 3, 600, 800).float()/256.0, dim=1, keepdim=True))
-        out = torch.cat(out, dim=1)
-        out = out[:, :, 200:600, :]
-        features = self.conv(out)
-        features = features.view(out.size(0), -1)
+        # out = []
+        # for i in input:
+        #     out.append(torch.mean(i.view(1, 3, 600, 800).float()/256.0, dim=1, keepdim=True))
+        # out = torch.cat(out, dim=1)
+        # out = out[:, :, 200:600, :]
+        # features = self.conv(out)
+        # features = features.view(out.size(0), -1)
 
-        features = torch.cat((features, xpos.view(1, 1).expand(1, 10).float()), dim=1)
-        features = torch.cat((features, bpos.view(1, 12).repeat(1, 20).float()), dim=1)
+        features = xpos.view(1, 1).float()
+        features = torch.cat((features, bpos.view(1, 12).float()), dim=1)
 
         values = self.value_stream(features)
         advantages = self.advantage_stream(features)
@@ -169,11 +169,11 @@ def training_stuff(shm_screen_name, shm_stats_name, shm_controls_name, shm_gameo
     while episode < episodes:
         state = []
 
-        for i in range(frames_per_state):
-            raw = screen_attach.buf.tobytes()
-            image_tensor = torch.tensor(np.frombuffer(raw, dtype=np.uint8))[0:1920000].view(600, 800, 4).permute(2, 0, 1)[0:3]
-            #image_tensor = torch.nn.functional.interpolate(image_tensor.float().view(1,3, 600, 800), size=(300, 400))
-            state.append(image_tensor.view(3, 600, 800))
+        # for i in range(frames_per_state):
+        #     raw = screen_attach.buf.tobytes()
+        #     image_tensor = torch.tensor(np.frombuffer(raw, dtype=np.uint8))[0:1920000].view(600, 800, 4).permute(2, 0, 1)[0:3]
+        #     #image_tensor = torch.nn.functional.interpolate(image_tensor.float().view(1,3, 600, 800), size=(300, 400))
+        #     state.append(image_tensor.view(3, 600, 800))
 
         raw = stats_attach.buf.tobytes()
         l = list(raw[0:17])
