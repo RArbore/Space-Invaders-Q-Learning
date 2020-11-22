@@ -81,7 +81,7 @@ class QNetwork(torch.nn.Module):
         # features = features.view(out.size(0), -1)
 
         features = xpos.view(1, 1).float()
-        features = torch.cat((features, bpos.view(1, 12).float()), dim=1)
+        features = torch.cat((features, (bpos-xpos).view(1, 12).float()), dim=1)
 
         values = self.value_stream(features)
         advantages = self.advantage_stream(features)
