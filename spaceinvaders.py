@@ -363,8 +363,6 @@ if __name__ == '__main__':
             mixer.pre_init(44100, -16, 1, 4096)
             init()
 
-            self.attributes = (0, 3)
-
             self.clock = time.Clock()
             self.caption = display.set_caption('Space Invaders')
             self.screen = SCREEN
@@ -389,7 +387,7 @@ if __name__ == '__main__':
             self.life1 = Life(715, 3)
             self.life2 = Life(742, 3)
             self.life3 = Life(769, 3)
-            self.livesGroup = sprite.Group(self.life1, self.life2, self.life3)
+            self.livesGroup = sprite.Group()#self.life1, self.life2, self.life3)
 
             self.score = 0
 
@@ -601,16 +599,68 @@ if __name__ == '__main__':
 
             shm_gameover.buf[0] = 1
 
+            self.update_buffers()
+
             while shm_gameover.buf[0] == 1:
                 t.sleep(0.001)
 
             self.mainScreen = True
 
+            t.sleep(3)
+
             for e in event.get():
                 if self.should_exit(e):
                     sys.exit()
 
+        def update_buffers(self):
+            buffer = self.screen.get_buffer()
+
+            shm_screen.buf[:] = buffer.raw
+
+            del buffer
+
+            shm_stats.buf[0] = self.score % 256
+            shm_stats.buf[1] = m.floor(self.score/256) % 256
+            shm_stats.buf[2] = m.floor(self.score/(256*256)) % 256
+            shm_stats.buf[3] = len(self.livesGroup) - shm_gameover.buf[0] + 1
+            shm_stats.buf[4] = int(float(self.player.rect.x-10)/730.0*255)
+
+            if len(enemyBulletsList) > 0:
+                b = enemyBulletsList[0]
+                if not self.enemyBullets.has(b):
+                    enemyBulletsList.remove(b)
+
+            for i in range(6):
+                if len(enemyBulletsList) > i:
+                    b = enemyBulletsList[i]
+                    shm_stats.buf[5+2*i] = int(b.rect.left/4)
+                    shm_stats.buf[6+2*i] = int(b.rect.top/3)
+                else:
+                    shm_stats.buf[5+2*i] = 0
+                    shm_stats.buf[6+2*i] = 0
+
+            #print(len(enemyBulletsList))
+
+            #print(len(enemyBulletsList))
+
+            # for e in event.get():
+            #     if self.should_exit(e):
+            #         sys.exit()
+            if self.keys[K_LEFT]:
+                shm_player_input.buf[0] = 1
+            else:
+                shm_player_input.buf[0] = 0
+            if self.keys[K_RIGHT]:
+                shm_player_input.buf[1] = 1
+            else:
+                shm_player_input.buf[1] = 0
+                # if e.type == KEYDOWN and e.key == K_SPACE:
+                #     shm_player_input[2] = 1
+                # elif e.key == K_SPACE:
+                #     shm_player_input[2] = 0
+
         def main(self):
+            t.sleep(1)
             while True:
                 if self.mainScreen:
                     self.screen.blit(self.background, (0, 0))
@@ -630,7 +680,7 @@ if __name__ == '__main__':
                                                     self.make_blockers(1),
                                                     self.make_blockers(2),
                                                     self.make_blockers(3))
-                    self.livesGroup.add(self.life1, self.life2, self.life3)
+                    #self.livesGroup.add(self.life1, self.life2, self.life3)
                     self.reset(0)
                     self.startGame = True
                     self.mainScreen = False
@@ -679,55 +729,9 @@ if __name__ == '__main__':
 
                 self.score += 1
 
-                self.attributes = self.score, len(self.livesGroup)
-
                 display.update()
 
-                buffer = self.screen.get_buffer()
-
-                shm_screen.buf[:] = buffer.raw
-
-                del buffer
-
-                shm_stats.buf[0] = self.score % 256
-                shm_stats.buf[1] = m.floor(self.score/256) % 256
-                shm_stats.buf[2] = m.floor(self.score/(256*256)) % 256
-                shm_stats.buf[3] = len(self.livesGroup)
-                shm_stats.buf[4] = int(float(self.player.rect.x-10)/730.0*255)
-
-                if len(enemyBulletsList) > 0:
-                    b = enemyBulletsList[0]
-                    if not self.enemyBullets.has(b):
-                        enemyBulletsList.remove(b)
-
-                for i in range(6):
-                    if len(enemyBulletsList) > i:
-                        b = enemyBulletsList[i]
-                        shm_stats.buf[5+2*i] = int(b.rect.left/4)
-                        shm_stats.buf[6+2*i] = int(b.rect.top/3)
-                    else:
-                        shm_stats.buf[5+2*i] = 0
-                        shm_stats.buf[6+2*i] = 0
-
-                #print(len(enemyBulletsList))
-
-                #print(len(enemyBulletsList))
-
-                # for e in event.get():
-                #     if self.should_exit(e):
-                #         sys.exit()
-                if self.keys[K_LEFT]:
-                    shm_player_input.buf[0] = 1
-                else:
-                    shm_player_input.buf[0] = 0
-                if self.keys[K_RIGHT]:
-                    shm_player_input.buf[1] = 1
-                else:
-                    shm_player_input.buf[1] = 0
-                    # if e.type == KEYDOWN and e.key == K_SPACE:
-                    #     shm_player_input[2] = 1
-                    # elif e.key == K_SPACE:
-                    #     shm_player_input[2] = 0
+                self.update_buffers()
 
                 while shm_gameover.buf[0] == 1:
                     t.sleep(1)

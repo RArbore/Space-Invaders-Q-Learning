@@ -164,7 +164,7 @@ def training_stuff(shm_screen_name, shm_stats_name, shm_controls_name, shm_gameo
     average_q = []
     average_r = []
 
-    last_lives = 3
+    last_lives = 0
 
     while episode < episodes:
         state = []
@@ -179,13 +179,15 @@ def training_stuff(shm_screen_name, shm_stats_name, shm_controls_name, shm_gameo
         l = list(raw[0:17])
         stats_tensor = torch.zeros(2)
         stats_tensor[0] = l[0]+256*l[1]+256*256*l[2]
-        stats_tensor[1] = l[3]
+        stats_tensor[1] = l[3] - 1
         xpos = l[4]
         bpos = []
         for i in range(5, 17):
             bpos.append(l[i])
 
         score = stats_tensor[1]-last_lives
+        # if not stats_tensor[1] == 0:
+        #     print(stats_tensor[1])
         average_r.append(score)
         last_lives = stats_tensor[1].item()
 
@@ -212,14 +214,14 @@ def training_stuff(shm_screen_name, shm_stats_name, shm_controls_name, shm_gameo
 
         action = calculated_action
 
-        if gameover_attach.buf[0] == 0:
-            replay_buffer.append((state, action, score, stats_tensor[0], xpos, bpos))
-            if len(replay_buffer) > 5000:
-                gameover_attach.buf[0] = 1
+        #if gameover_attach.buf[0] == 0:
+        replay_buffer.append((state, action, score, stats_tensor[0], xpos, bpos))
+        if len(replay_buffer) > 5000:
+            gameover_attach.buf[0] = 1
 
             #time.sleep(0.1)
 
-        if gameover_attach.buf[0] == 1:
+        if gameover_attach.buf[0] == 1 and len(replay_buffer) > 2 and score < 0:
             if not evaluation:
                 max_score = 0
                 replays_by_reward = []
@@ -228,7 +230,7 @@ def training_stuff(shm_screen_name, shm_stats_name, shm_controls_name, shm_gameo
 
                 #print(len(replay_buffer))
 
-                for r in range(1, len(replay_buffer)-1):
+                for r in range(1, len(replay_buffer)):
                     replays_by_reward.append(abs(replay_buffer[r][2] - replay_buffer[r - 1][2])+10)
 
                 if len(replays_by_reward) > 0:
@@ -250,16 +252,16 @@ def training_stuff(shm_screen_name, shm_stats_name, shm_controls_name, shm_gameo
                         loss = torch.zeros(1).to(device)
                         if replay_buffer[sample][2] - replay_buffer[sample-1][2] > 0:
                             continue
-                        for i in range(frames_per_state):
-                            replay_buffer[sample][0][i] = replay_buffer[sample][0][i].to(device)
-                            replay_buffer[sample+1][0][i] = replay_buffer[sample+1][0][i].to(device)
+                        # for i in range(frames_per_state):
+                        #     replay_buffer[sample][0][i] = replay_buffer[sample][0][i].to(device)
+                        #     replay_buffer[sample+1][0][i] = replay_buffer[sample+1][0][i].to(device)
                         target = (replay_buffer[sample][2] - replay_buffer[sample-1][2]).to(device)
-                        if not (replay_buffer[sample+1][2] == -1):
+                        if not (replay_buffer[sample][2] == -1):
                             target += gamma*torch.max(pred_model(replay_buffer[sample+1][0], torch.tensor(replay_buffer[sample][4]).to(device), torch.tensor(replay_buffer[sample][5]).to(device))).to(device)
                         loss += ((target - model(replay_buffer[sample][0], torch.tensor(replay_buffer[sample][4]).to(device), torch.tensor(replay_buffer[sample][5]).to(device))[0, replay_buffer[sample][1]])**2).float().to(device)
-                        for i in range(frames_per_state):
-                            replay_buffer[sample][0][i] = replay_buffer[sample][0][i].to(cpu)
-                            replay_buffer[sample+1][0][i] = replay_buffer[sample+1][0][i].to(cpu)
+                        # for i in range(frames_per_state):
+                        #     replay_buffer[sample][0][i] = replay_buffer[sample][0][i].to(cpu)
+                        #     replay_buffer[sample+1][0][i] = replay_buffer[sample+1][0][i].to(cpu)
 
                         loss.backward()
                         avg_loss += loss.item()
@@ -274,7 +276,7 @@ def training_stuff(shm_screen_name, shm_stats_name, shm_controls_name, shm_gameo
                     average_q = []
                     average_r = []
 
-                    last_lives = 3
+                    last_lives = 0
 
                     print("Episode "+str(episode)+"   Score: "+str(max_score)+"   Reward: "+str(r)+"   Loss: "+str(avg_loss)+"   Q: "+str(q))
 
@@ -285,6 +287,8 @@ def training_stuff(shm_screen_name, shm_stats_name, shm_controls_name, shm_gameo
 
             gameover_attach.buf[0] = 0
             time.sleep(0.25)
+        elif gameover_attach.buf[0] == 1 and score < 0:
+            gameover_attach.buf[0] = 0
 
     if make_trial:
         f.close()
