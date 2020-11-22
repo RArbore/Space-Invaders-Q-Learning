@@ -221,7 +221,7 @@ def training_stuff(shm_screen_name, shm_stats_name, shm_controls_name, shm_gameo
 
             #time.sleep(0.1)
 
-        if gameover_attach.buf[0] == 1 and len(replay_buffer) > 2:
+        if gameover_attach.buf[0] == 1 and len(replay_buffer) > 2 and (score < 0 or len(replay_buffer) > 5000):
             if not evaluation:
                 max_score = 0
                 replays_by_reward = []
@@ -256,7 +256,7 @@ def training_stuff(shm_screen_name, shm_stats_name, shm_controls_name, shm_gameo
                         #     replay_buffer[sample][0][i] = replay_buffer[sample][0][i].to(device)
                         #     replay_buffer[sample+1][0][i] = replay_buffer[sample+1][0][i].to(device)
                         target = (replay_buffer[sample][2] - replay_buffer[sample-1][2]).to(device)
-                        if not sample + 1 == len(samples):
+                        if sample < len(samples):
                             target += gamma*torch.max(pred_model(replay_buffer[sample+1][0], torch.tensor(replay_buffer[sample][4]).to(device), torch.tensor(replay_buffer[sample][5]).to(device))).to(device)
                         loss += ((target - model(replay_buffer[sample][0], torch.tensor(replay_buffer[sample][4]).to(device), torch.tensor(replay_buffer[sample][5]).to(device))[0, replay_buffer[sample][1]])**2).float().to(device)
                         # for i in range(frames_per_state):
@@ -287,7 +287,7 @@ def training_stuff(shm_screen_name, shm_stats_name, shm_controls_name, shm_gameo
 
             gameover_attach.buf[0] = 0
             time.sleep(0.25)
-        elif gameover_attach.buf[0] == 1:
+        elif gameover_attach.buf[0] == 1 and (score < 0 or len(replay_buffer) > 5000):
             gameover_attach.buf[0] = 0
 
     if make_trial:
