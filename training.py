@@ -257,7 +257,10 @@ def training_stuff(shm_screen_name, shm_stats_name, shm_controls_name, shm_gameo
                         #     replay_buffer[sample+1][0][i] = replay_buffer[sample+1][0][i].to(device)
                         target = (replay_buffer[sample][2] - replay_buffer[sample-1][2]).to(device)
                         if sample < len(samples):
-                            target += gamma*torch.max(pred_model(replay_buffer[sample+1][0], torch.tensor(replay_buffer[sample][4]).to(device), torch.tensor(replay_buffer[sample][5]).to(device))).to(device)
+                            try:
+                                target += gamma*torch.max(pred_model(replay_buffer[sample+1][0], torch.tensor(replay_buffer[sample][4]).to(device), torch.tensor(replay_buffer[sample][5]).to(device))).to(device)
+                            except:
+                                pass
                         loss += ((target - model(replay_buffer[sample][0], torch.tensor(replay_buffer[sample][4]).to(device), torch.tensor(replay_buffer[sample][5]).to(device))[0, replay_buffer[sample][1]])**2).float().to(device)
                         # for i in range(frames_per_state):
                         #     replay_buffer[sample][0][i] = replay_buffer[sample][0][i].to(cpu)
