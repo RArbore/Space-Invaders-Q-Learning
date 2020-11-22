@@ -599,7 +599,7 @@ if __name__ == '__main__':
 
             shm_gameover.buf[0] = 1
 
-            self.update_buffers()
+            self.update_buffers(1)
 
             while shm_gameover.buf[0] == 1:
                 t.sleep(0.001)
@@ -612,7 +612,7 @@ if __name__ == '__main__':
                 if self.should_exit(e):
                     sys.exit()
 
-        def update_buffers(self):
+        def update_buffers(self, dead):
             buffer = self.screen.get_buffer()
 
             shm_screen.buf[:] = buffer.raw
@@ -622,7 +622,7 @@ if __name__ == '__main__':
             shm_stats.buf[0] = self.score % 256
             shm_stats.buf[1] = m.floor(self.score/256) % 256
             shm_stats.buf[2] = m.floor(self.score/(256*256)) % 256
-            shm_stats.buf[3] = len(self.livesGroup) - shm_gameover.buf[0] + 1
+            shm_stats.buf[3] = len(self.livesGroup) - dead + 1
             shm_stats.buf[4] = int(float(self.player.rect.x-10)/730.0*255)
 
             if len(enemyBulletsList) > 0:
@@ -731,7 +731,7 @@ if __name__ == '__main__':
 
                 display.update()
 
-                self.update_buffers()
+                self.update_buffers(0)
 
                 while shm_gameover.buf[0] == 1:
                     t.sleep(1)
