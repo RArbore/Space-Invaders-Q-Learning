@@ -493,8 +493,8 @@ if __name__ == '__main__':
             if (time.get_ticks() - self.timer) > 200 and self.enemies:
             #if (time.get_ticks() - self.timer) > 200 and self.enemies:
                 enemy = self.enemies.random_bottom()
-                while not enemy.column == 0 and not enemy.column == 7 and not enemy.column == 15:
-                    enemy = self.enemies.random_bottom()
+                # while not enemy.column == 0 and not enemy.column == 7 and not enemy.column == 15:
+                #     enemy = self.enemies.random_bottom()
                 b = Bullet(enemy.rect.x + 14, enemy.rect.y + 20, 1, 5, 'enemylaser', 'center')
                 enemyBulletsList.append(b)
                 self.enemyBullets.add(b)
